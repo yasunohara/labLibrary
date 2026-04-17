@@ -3,28 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>所蔵一覧 | ISBN所蔵チェッカー</title>
+    <title>一覧を見る | ISBNチェッカー</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
     <main class="page">
       <header class="hero compact">
         <p class="eyebrow">Library Shelf</p>
-        <h1>所蔵一覧</h1>
-        <p class="lead">登録済みの本を表紙つきで一覧表示します。</p>
+        <h1>一覧を見る</h1>
+        <p class="lead">表紙の一覧と表形式の一覧を切り替えながら、本の詳細を確認できます。</p>
       </header>
 
       <nav class="app-nav">
         <a class="nav-link" href="/">ホーム</a>
-        <a class="nav-link" href="/check.html">所蔵確認</a>
-        <a class="nav-link" href="/register.html">本を登録</a>
+        <a class="nav-link" href="/check.html">ISBN確認</a>
+        <a class="nav-link" href="/register.html">本の登録</a>
         <a class="nav-link active" href="/books.html">一覧を見る</a>
       </nav>
 
       <section class="panel">
-        <div id="book-list" class="book-list empty">
-          まだ本が登録されていません。
+        <div class="view-toggle" role="tablist" aria-label="一覧表示の切り替え">
+          <button id="view-shelf" class="view-toggle-button active" type="button" data-view="shelf">画像一覧</button>
+          <button id="view-table" class="view-toggle-button" type="button" data-view="table">表一覧</button>
         </div>
+        <div id="book-list" class="book-list empty">まだ本は登録されていません。</div>
         <p id="form-message" class="inline-message"></p>
       </section>
     </main>

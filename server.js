@@ -254,6 +254,24 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === "GET" && url.pathname.startsWith("/api/books/")) {
+    const isbn = normalizeIsbn(url.pathname.split("/").pop());
+
+    if (!isValidIsbn(isbn)) {
+      sendJson(response, 400, { error: "削除対象のISBNが不正です。" });
+      return;
+    }
+
+    const book = selectBookByIsbn.get(isbn);
+    if (!book) {
+      sendJson(response, 404, { error: "対象の本が見つかりません。" });
+      return;
+    }
+
+    sendJson(response, 200, { book });
+    return;
+  }
+
   if (request.method === "GET" && url.pathname === "/api/check") {
     const isbn = normalizeIsbn(url.searchParams.get("isbn"));
 
