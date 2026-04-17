@@ -12,4 +12,5 @@ services:
       DB_PATH: /data/books.db
       GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
     volumes:
+      - .:/app
       - ./data:/data

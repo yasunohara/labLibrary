@@ -48,11 +48,18 @@ Docker を使う場合は `compose.yaml` の `GOOGLE_BOOKS_API_KEY` を設定し
 docker compose up -d --build
 ```
 
+ソースコードは `.:/app` としてコンテナにマウントされるため、`server.js` や `public/` を編集した場合はイメージの再ビルドは不要です。通常はコンテナの再起動だけで反映できます。
+
+```bash
+docker compose restart
+```
+
 ブラウザで `http://127.0.0.1:3000` を開いて使います。
 
 ### compose の内容
 
 - アプリ本体: コンテナ内で `node server.js`
+- ソースコード: ホストのプロジェクト全体を `/app` に bind mount
 - 公開ポート: `3000`
 - DB 保存先: コンテナ内 `/data/books.db`
 - ホスト側保存先: `./data/books.db`
