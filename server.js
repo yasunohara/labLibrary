@@ -8,6 +8,7 @@ const HOST = "127.0.0.1";
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DB_PATH = path.join(__dirname, "books.db");
+const GOOGLE_BOOKS_API_KEY = process.env.GOOGLE_BOOKS_API_KEY || "";
 
 const db = new DatabaseSync(DB_PATH);
 
@@ -16,28 +17,34 @@ db.exec(`
     isbn TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     author TEXT DEFAULT '',
+    publisher TEXT DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
 `);
 
+ensureColumn("books", "publisher", "TEXT DEFAULT ''");
+
 const selectBookByIsbn = db.prepare(`
-  SELECT isbn, title, author, created_at
+  SELECT isbn, title, author, publisher, created_at
   FROM books
   WHERE isbn = ?
 `);
 
 const selectAllBooks = db.prepare(`
-  SELECT isbn, title, author, created_at
+  SELECT isbn, title, author, publisher, created_at
   FROM books
   ORDER BY created_at DESC, title ASC
 `);
 
 const insertBook = db.prepare(`
-  INSERT INTO books (isbn, title, author)
-  VALUES (?, ?, ?)
-  ON CONFLICT(isbn) DO UPDATE SET
-    title = excluded.title,
-    author = excluded.author
+  INSERT INTO books (isbn, title, author, publisher)
+  VALUES (?, ?, ?, ?)
+`);
+
+const updateBook = db.prepare(`
+  UPDATE books
+  SET title = ?, author = ?, publisher = ?
+  WHERE isbn = ?
 `);
 
 const deleteBook = db.prepare(`
@@ -52,6 +59,15 @@ const mimeTypes = {
   ".json": "application/json; charset=utf-8",
   ".ico": "image/x-icon"
 };
+
+function ensureColumn(tableName, columnName, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
+  const exists = columns.some((column) => column.name === columnName);
+
+  if (!exists) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  }
+}
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
@@ -86,7 +102,7 @@ function readRequestBody(request) {
 
       try {
         resolve(JSON.parse(rawBody));
-      } catch (error) {
+      } catch {
         reject(new Error("Invalid JSON body."));
       }
     });
@@ -118,6 +134,56 @@ function serveStaticFile(requestPath, response) {
   });
 }
 
+async function fetchBookMetadataByIsbn(isbn) {
+  const endpoint = new URL("https://www.googleapis.com/books/v1/volumes");
+  endpoint.searchParams.set("q", `isbn:${isbn}`);
+  endpoint.searchParams.set("maxResults", "1");
+  endpoint.searchParams.set("printType", "books");
+  endpoint.searchParams.set("projection", "full");
+
+  if (GOOGLE_BOOKS_API_KEY) {
+    endpoint.searchParams.set("key", GOOGLE_BOOKS_API_KEY);
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const apiResponse = await fetch(endpoint, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "library-checker/1.0"
+      }
+    });
+
+    if (apiResponse.ok) {
+      const data = await apiResponse.json();
+      const volume = data.items?.[0];
+
+      if (!volume?.volumeInfo) {
+        return null;
+      }
+
+      const { volumeInfo } = volume;
+      return {
+        isbn,
+        title: volumeInfo.title || "",
+        author: Array.isArray(volumeInfo.authors) ? volumeInfo.authors.join(", ") : "",
+        publisher: volumeInfo.publisher || "",
+        publishedDate: volumeInfo.publishedDate || "",
+        description: volumeInfo.description || "",
+        infoLink: volumeInfo.infoLink || "",
+        source: "google-books"
+      };
+    }
+
+    if (![429, 500, 502, 503, 504].includes(apiResponse.status) || attempt === 2) {
+      throw new Error(`Google Books API error: ${apiResponse.status}`);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+  }
+
+  return null;
+}
+
 async function handleApi(request, response, url) {
   if (request.method === "GET" && url.pathname === "/api/books") {
     const books = selectAllBooks.all();
@@ -138,11 +204,42 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === "GET" && url.pathname === "/api/book-info") {
+    const isbn = normalizeIsbn(url.searchParams.get("isbn"));
+
+    if (!isValidIsbn(isbn)) {
+      sendJson(response, 400, { error: "ISBN-10 または ISBN-13 を入力してください。" });
+      return;
+    }
+
+    try {
+      const book = await fetchBookMetadataByIsbn(isbn);
+
+      if (!book) {
+        sendJson(response, 404, { error: "Google Books で該当する本が見つかりませんでした。" });
+        return;
+      }
+
+      sendJson(response, 200, {
+        book,
+        apiKeyConfigured: Boolean(GOOGLE_BOOKS_API_KEY)
+      });
+    } catch (error) {
+      sendJson(response, 502, {
+        error: "Google Books から情報を取得できませんでした。",
+        details: error.message
+      });
+    }
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/books") {
     const body = await readRequestBody(request);
     const isbn = normalizeIsbn(body.isbn);
     const title = String(body.title || "").trim();
     const author = String(body.author || "").trim();
+    const publisher = String(body.publisher || "").trim();
+    const overwrite = Boolean(body.overwrite);
 
     if (!isValidIsbn(isbn)) {
       sendJson(response, 400, { error: "ISBN-10 または ISBN-13 を入力してください。" });
@@ -154,7 +251,23 @@ async function handleApi(request, response, url) {
       return;
     }
 
-    insertBook.run(isbn, title, author);
+    const existingBook = selectBookByIsbn.get(isbn);
+    if (existingBook) {
+      if (!overwrite) {
+        sendJson(response, 409, {
+          error: "このISBNの本はすでに登録されています。上書きしますか？",
+          existingBook
+        });
+        return;
+      }
+
+      updateBook.run(title, author, publisher, isbn);
+      const book = selectBookByIsbn.get(isbn);
+      sendJson(response, 200, { message: "登録済みの本を更新しました。", book });
+      return;
+    }
+
+    insertBook.run(isbn, title, author, publisher);
     const book = selectBookByIsbn.get(isbn);
     sendJson(response, 201, { message: "本を登録しました。", book });
     return;
@@ -202,4 +315,8 @@ const server = http.createServer(async (request, response) => {
 server.listen(PORT, HOST, () => {
   console.log(`Library app is running at http://${HOST}:${PORT}`);
   console.log(`SQLite DB: ${DB_PATH}`);
+
+  if (!GOOGLE_BOOKS_API_KEY) {
+    console.log("GOOGLE_BOOKS_API_KEY is not set. Google Books lookup may be rate-limited.");
+  }
 });
