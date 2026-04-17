@@ -56,6 +56,7 @@ docker compose up -d --build
 - 公開ポート: `3000`
 - DB 保存先: コンテナ内 `/data/books.db`
 - ホスト側保存先: `./data/books.db`
+- 初回起動用に `data/` フォルダを同梱
 
 ### NAS などで使う場合
 
