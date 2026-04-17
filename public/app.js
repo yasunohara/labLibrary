@@ -582,6 +582,14 @@ if (bookForm) {
   resetRegisterFlow();
 
   lookupButton.addEventListener("click", lookupBookByIsbn);
+  bookIsbnInput?.addEventListener("keydown", async (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    await lookupBookByIsbn();
+  });
 
   bookCoverInput.addEventListener("input", () => {
     updateCoverPreview(bookCoverInput.value, bookTitleInput.value);
