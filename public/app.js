@@ -6,6 +6,8 @@ const bookIsbnInput = document.getElementById("book-isbn");
 const bookTitleInput = document.getElementById("book-title");
 const bookAuthorInput = document.getElementById("book-author");
 const bookPublisherInput = document.getElementById("book-publisher");
+const bookCoverInput = document.getElementById("book-cover-url");
+const coverPreview = document.getElementById("cover-preview");
 const lookupButton = document.getElementById("lookup-button");
 const lookupMessage = document.getElementById("lookup-message");
 const formMessage = document.getElementById("form-message");
@@ -31,12 +33,27 @@ function clearInlineMessage(target) {
 }
 
 function escapeHtml(value) {
-  return String(value)
+  return String(value || "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function updateCoverPreview(url, title = "") {
+  const safeUrl = String(url || "").trim();
+
+  if (!safeUrl) {
+    coverPreview.className = "cover-preview empty";
+    coverPreview.innerHTML = "<span>表紙プレビューはここに表示されます。</span>";
+    return;
+  }
+
+  coverPreview.className = "cover-preview";
+  coverPreview.innerHTML = `
+    <img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(title || "書影")}" loading="lazy" />
+  `;
 }
 
 async function fetchBooks() {
@@ -67,19 +84,26 @@ function renderBooks(books) {
 
   bookList.className = "book-list";
   bookList.innerHTML = books
-    .map(
-      (book) => `
+    .map((book) => {
+      const cover = book.cover_url
+        ? `<img class="book-cover" src="${escapeHtml(book.cover_url)}" alt="${escapeHtml(book.title)}" loading="lazy" />`
+        : `<div class="book-cover placeholder">NO IMAGE</div>`;
+
+      return `
         <article class="book-item">
-          <div>
-            <h3>${escapeHtml(book.title)}</h3>
-            <p>ISBN: ${escapeHtml(book.isbn)}</p>
-            <p>著者: ${escapeHtml(book.author || "未登録")}</p>
-            <p>出版社: ${escapeHtml(book.publisher || "未登録")}</p>
+          <div class="book-main">
+            ${cover}
+            <div class="book-meta">
+              <h3>${escapeHtml(book.title)}</h3>
+              <p>ISBN: ${escapeHtml(book.isbn)}</p>
+              <p>著者: ${escapeHtml(book.author || "未登録")}</p>
+              <p>出版社: ${escapeHtml(book.publisher || "未登録")}</p>
+            </div>
           </div>
           <button class="delete-button" data-isbn="${escapeHtml(book.isbn)}">削除</button>
         </article>
-      `
-    )
+      `;
+    })
     .join("");
 }
 
@@ -107,6 +131,8 @@ async function lookupBookByIsbn() {
     bookTitleInput.value = data.book.title || "";
     bookAuthorInput.value = data.book.author || "";
     bookPublisherInput.value = data.book.publisher || "";
+    bookCoverInput.value = data.book.coverUrl || "";
+    updateCoverPreview(data.book.coverUrl, data.book.title);
 
     const apiKeyNote = data.apiKeyConfigured ? "" : " APIキー未設定のため、利用量が増えると制限される可能性があります。";
     setInlineMessage(lookupMessage, `Google Books から情報を取得しました。${apiKeyNote}`);
@@ -155,6 +181,14 @@ bookIsbnInput.addEventListener("blur", async () => {
   }
 });
 
+bookCoverInput.addEventListener("input", () => {
+  updateCoverPreview(bookCoverInput.value, bookTitleInput.value);
+});
+
+bookTitleInput.addEventListener("input", () => {
+  updateCoverPreview(bookCoverInput.value, bookTitleInput.value);
+});
+
 bookForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearInlineMessage(formMessage);
@@ -165,6 +199,7 @@ bookForm.addEventListener("submit", async (event) => {
     title: String(formData.get("title") || "").trim(),
     author: String(formData.get("author") || "").trim(),
     publisher: String(formData.get("publisher") || "").trim(),
+    coverUrl: String(formData.get("coverUrl") || "").trim(),
     overwrite: false
   };
 
@@ -192,6 +227,7 @@ bookForm.addEventListener("submit", async (event) => {
   clearInlineMessage(lookupMessage);
   setInlineMessage(formMessage, data.message || "登録しました。");
   setCheckResult("neutral", "ここに確認結果が表示されます。");
+  updateCoverPreview("");
   await fetchBooks();
 });
 
@@ -215,6 +251,8 @@ bookList.addEventListener("click", async (event) => {
   setInlineMessage(formMessage, data.message || "削除しました。");
   await fetchBooks();
 });
+
+updateCoverPreview("");
 
 fetchBooks().catch(() => {
   bookList.className = "book-list empty";

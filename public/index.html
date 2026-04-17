@@ -12,7 +12,7 @@
         <p class="eyebrow">Local Library App</p>
         <h1>ISBNで持っている本をすぐ確認</h1>
         <p class="lead">
-          ISBNを入れると、所蔵確認だけでなく Google Books からタイトル、著者、出版社などを自動取得して登録できます。
+          ISBNを入れると、所蔵確認だけでなく Google Books からタイトル、著者、出版社、表紙画像を取得して登録できます。
         </p>
       </section>
 
@@ -41,8 +41,8 @@
           <p>ISBNから情報を取得してから登録できます</p>
         </div>
 
-        <form id="book-form" class="form-grid two-column">
-          <label class="full-width">
+        <form id="book-form" class="form-grid">
+          <label>
             <span>ISBN</span>
             <div class="input-with-button">
               <input id="book-isbn" name="isbn" placeholder="9784101010014" required />
@@ -50,22 +50,34 @@
             </div>
           </label>
 
-          <label>
-            <span>タイトル</span>
-            <input id="book-title" name="title" placeholder="本のタイトル" required />
-          </label>
+          <div class="book-form-layout">
+            <div class="book-form-fields">
+              <label>
+                <span>タイトル</span>
+                <input id="book-title" name="title" placeholder="本のタイトル" required />
+              </label>
 
-          <label>
-            <span>著者</span>
-            <input id="book-author" name="author" placeholder="著者名" />
-          </label>
+              <label>
+                <span>著者</span>
+                <input id="book-author" name="author" placeholder="著者名" />
+              </label>
 
-          <label class="full-width">
-            <span>出版社</span>
-            <input id="book-publisher" name="publisher" placeholder="出版社名" />
-          </label>
+              <label>
+                <span>出版社</span>
+                <input id="book-publisher" name="publisher" placeholder="出版社名" />
+              </label>
 
-          <button type="submit">登録する</button>
+              <input id="book-cover-url" name="coverUrl" type="hidden" />
+
+              <button type="submit" class="submit-button">登録する</button>
+            </div>
+
+            <div class="book-form-preview">
+              <div class="cover-preview empty" id="cover-preview">
+                <span>表紙プレビューはここに表示されます。</span>
+              </div>
+            </div>
+          </div>
         </form>
 
         <p id="lookup-message" class="inline-message"></p>

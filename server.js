@@ -18,32 +18,34 @@ db.exec(`
     title TEXT NOT NULL,
     author TEXT DEFAULT '',
     publisher TEXT DEFAULT '',
+    cover_url TEXT DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
 `);
 
 ensureColumn("books", "publisher", "TEXT DEFAULT ''");
+ensureColumn("books", "cover_url", "TEXT DEFAULT ''");
 
 const selectBookByIsbn = db.prepare(`
-  SELECT isbn, title, author, publisher, created_at
+  SELECT isbn, title, author, publisher, cover_url, created_at
   FROM books
   WHERE isbn = ?
 `);
 
 const selectAllBooks = db.prepare(`
-  SELECT isbn, title, author, publisher, created_at
+  SELECT isbn, title, author, publisher, cover_url, created_at
   FROM books
   ORDER BY created_at DESC, title ASC
 `);
 
 const insertBook = db.prepare(`
-  INSERT INTO books (isbn, title, author, publisher)
-  VALUES (?, ?, ?, ?)
+  INSERT INTO books (isbn, title, author, publisher, cover_url)
+  VALUES (?, ?, ?, ?, ?)
 `);
 
 const updateBook = db.prepare(`
   UPDATE books
-  SET title = ?, author = ?, publisher = ?
+  SET title = ?, author = ?, publisher = ?, cover_url = ?
   WHERE isbn = ?
 `);
 
@@ -76,6 +78,23 @@ function sendJson(response, statusCode, payload) {
 
 function normalizeIsbn(value) {
   return String(value || "").replace(/[^0-9Xx]/g, "").toUpperCase();
+}
+
+function normalizeImageUrl(url) {
+  const value = String(url || "").trim();
+  if (!value) {
+    return "";
+  }
+
+  if (value.startsWith("http://")) {
+    return `https://${value.slice("http://".length)}`;
+  }
+
+  if (value.startsWith("//")) {
+    return `https:${value}`;
+  }
+
+  return value;
 }
 
 function isValidIsbn(isbn) {
@@ -162,11 +181,22 @@ async function fetchBookMetadataByIsbn(isbn) {
       }
 
       const { volumeInfo } = volume;
+      const imageLinks = volumeInfo.imageLinks || {};
+      const coverUrl = normalizeImageUrl(
+        imageLinks.thumbnail ||
+          imageLinks.smallThumbnail ||
+          imageLinks.small ||
+          imageLinks.medium ||
+          imageLinks.large ||
+          imageLinks.extraLarge
+      );
+
       return {
         isbn,
         title: volumeInfo.title || "",
         author: Array.isArray(volumeInfo.authors) ? volumeInfo.authors.join(", ") : "",
         publisher: volumeInfo.publisher || "",
+        coverUrl,
         publishedDate: volumeInfo.publishedDate || "",
         description: volumeInfo.description || "",
         infoLink: volumeInfo.infoLink || "",
@@ -239,6 +269,7 @@ async function handleApi(request, response, url) {
     const title = String(body.title || "").trim();
     const author = String(body.author || "").trim();
     const publisher = String(body.publisher || "").trim();
+    const coverUrl = normalizeImageUrl(body.coverUrl);
     const overwrite = Boolean(body.overwrite);
 
     if (!isValidIsbn(isbn)) {
@@ -261,13 +292,13 @@ async function handleApi(request, response, url) {
         return;
       }
 
-      updateBook.run(title, author, publisher, isbn);
+      updateBook.run(title, author, publisher, coverUrl, isbn);
       const book = selectBookByIsbn.get(isbn);
       sendJson(response, 200, { message: "登録済みの本を更新しました。", book });
       return;
     }
 
-    insertBook.run(isbn, title, author, publisher);
+    insertBook.run(isbn, title, author, publisher, coverUrl);
     const book = selectBookByIsbn.get(isbn);
     sendJson(response, 201, { message: "本を登録しました。", book });
     return;

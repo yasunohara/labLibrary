@@ -78,12 +78,12 @@ h1 {
 }
 
 .panel-header h2,
-.book-item h3 {
+.book-meta h3 {
   margin: 0;
 }
 
 .panel-header p,
-.book-item p,
+.book-meta p,
 .inline-message {
   margin: 0;
   color: var(--muted);
@@ -92,14 +92,6 @@ h1 {
 .form-grid {
   display: grid;
   gap: 14px;
-}
-
-.two-column {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.full-width {
-  grid-column: 1 / -1;
 }
 
 label {
@@ -116,6 +108,22 @@ label span {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
+}
+
+.book-form-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(240px, 0.7fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.book-form-fields {
+  display: grid;
+  gap: 14px;
+}
+
+.book-form-preview {
+  display: grid;
 }
 
 input,
@@ -151,6 +159,13 @@ button:disabled {
   opacity: 0.7;
   cursor: wait;
   transform: none;
+}
+
+.submit-button {
+  width: fit-content;
+  justify-self: start;
+  align-self: start;
+  padding: 10px 16px;
 }
 
 .result-card {
@@ -191,6 +206,29 @@ button:disabled {
   color: #9f2b2b;
 }
 
+.cover-preview {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.55);
+  overflow: hidden;
+}
+
+.cover-preview img {
+  width: 100%;
+  max-width: 220px;
+  height: 220px;
+  object-fit: contain;
+}
+
+.cover-preview.empty {
+  color: var(--muted);
+  padding: 20px;
+  text-align: center;
+}
+
 .book-list {
   display: grid;
   gap: 14px;
@@ -214,6 +252,37 @@ button:disabled {
   background: rgba(255, 255, 255, 0.72);
 }
 
+.book-main {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.book-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.book-cover {
+  width: 92px;
+  height: 132px;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 10px 24px rgba(69, 44, 18, 0.16);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.book-cover.placeholder {
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
 .delete-button {
   background: #a14b3e;
 }
@@ -234,7 +303,8 @@ button:disabled {
 
   .panel-header,
   .book-item,
-  .two-column,
+  .book-main,
+  .book-form-layout,
   .input-with-button {
     display: grid;
     grid-template-columns: 1fr;
@@ -242,5 +312,11 @@ button:disabled {
 
   .book-item {
     align-items: start;
+  }
+
+  .book-cover,
+  .book-cover.placeholder {
+    width: 110px;
+    height: 156px;
   }
 }
