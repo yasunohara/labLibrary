@@ -9,6 +9,11 @@ const bookCoverInput = document.getElementById("book-cover-url");
 const coverPreview = document.getElementById("cover-preview");
 const lookupButton = document.getElementById("lookup-button");
 const lookupMessage = document.getElementById("lookup-message");
+const registerPanel = document.getElementById("register-panel");
+const registerModeLabel = document.getElementById("register-mode-label");
+const saveButton = document.getElementById("save-button");
+const deleteBookButton = document.getElementById("delete-book-button");
+const cancelRegisterButton = document.getElementById("cancel-register-button");
 
 const formMessage = document.getElementById("form-message");
 const bookList = document.getElementById("book-list");
@@ -20,6 +25,7 @@ const filterQueryInput = document.getElementById("filter-query");
 const filterScopeInputs = document.querySelectorAll('input[name="filter-scope"]');
 
 let currentBookListView = "shelf";
+let currentRegisterMode = "create";
 let allBooks = [];
 
 function normalizeIsbn(value) {
@@ -183,6 +189,35 @@ async function fetchBookByIsbn(isbn) {
   return { response, data };
 }
 
+async function findExistingBookByIsbn(isbn) {
+  const { response, data } = await fetchBookByIsbn(isbn);
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || "登録情報の確認に失敗しました。");
+  }
+
+  return data.book;
+}
+
+async function lookupMetadataByIsbn(isbn) {
+  const response = await fetch(`/api/book-info?isbn=${encodeURIComponent(isbn)}`);
+  const data = await response.json();
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || "書誌情報の取得に失敗しました。");
+  }
+
+  return data.book;
+}
+
 async function submitBook(payload) {
   const response = await fetch("/api/books", {
     method: "POST",
@@ -194,6 +229,142 @@ async function submitBook(payload) {
 
   const data = await response.json();
   return { response, data };
+}
+
+function showRegisterPanel() {
+  registerPanel?.classList.remove("hidden");
+}
+
+function hideRegisterPanel() {
+  registerPanel?.classList.add("hidden");
+}
+
+function setRegisterMode(mode) {
+  currentRegisterMode = mode;
+
+  if (!saveButton || !deleteBookButton || !registerModeLabel) {
+    return;
+  }
+
+  if (mode === "update") {
+    registerModeLabel.textContent = "登録済みの本です。内容を確認して更新または削除できます。";
+    saveButton.textContent = "更新する";
+    deleteBookButton.classList.remove("hidden");
+    return;
+  }
+
+  registerModeLabel.textContent = "新しい本です。内容を確認して登録してください。";
+  saveButton.textContent = "確認して登録";
+  deleteBookButton.classList.add("hidden");
+}
+
+function fillRegisterFields(values) {
+  bookTitleInput.value = values.title || "";
+  bookAuthorInput.value = values.author || "";
+  bookPublisherInput.value = values.publisher || "";
+  bookPublishedDateInput.value = normalizeDate(values.publishedDate || values.published_date);
+  bookPurchaseDateInput.value = normalizeDate(values.purchaseDate || values.purchase_date) || getTodayString();
+  bookCoverInput.value = values.coverUrl || values.cover_url || "";
+  updateCoverPreview(bookCoverInput.value, bookTitleInput.value);
+}
+
+function resetRegisterFlow() {
+  if (!bookForm) {
+    return;
+  }
+
+  bookForm.reset();
+  applyDefaultPurchaseDate();
+  hideRegisterPanel();
+  setRegisterMode("create");
+  clearInlineMessage(lookupMessage);
+  clearInlineMessage(formMessage);
+  updateCoverPreview("");
+}
+
+async function lookupBookByIsbn() {
+  clearInlineMessage(lookupMessage);
+  clearInlineMessage(formMessage);
+
+  const isbn = normalizeIsbn(bookIsbnInput?.value);
+  if (!isbn) {
+    setInlineMessage(lookupMessage, "ISBN を入力してください。", true);
+    return;
+  }
+
+  lookupButton.disabled = true;
+  lookupButton.textContent = "取得中...";
+
+  try {
+    const existingBook = await findExistingBookByIsbn(isbn);
+    bookIsbnInput.value = isbn;
+
+    if (existingBook) {
+      fillRegisterFields(existingBook);
+      setRegisterMode("update");
+      showRegisterPanel();
+      setInlineMessage(lookupMessage, "登録済みの本です。DB に保存されている内容を表示しています。");
+      return;
+    }
+
+    const metadataBook = await lookupMetadataByIsbn(isbn).catch((error) => {
+      if (!error.message) {
+        throw error;
+      }
+
+      return null;
+    });
+
+    if (!metadataBook) {
+      hideRegisterPanel();
+      setInlineMessage(lookupMessage, "Google Books と登録済み一覧のどちらにも見つかりませんでした。", true);
+      return;
+    }
+
+    fillRegisterFields({
+      title: metadataBook.title,
+      author: metadataBook.author,
+      publisher: metadataBook.publisher,
+      publishedDate: metadataBook.publishedDate,
+      purchaseDate: getTodayString(),
+      coverUrl: metadataBook.coverUrl
+    });
+    setRegisterMode("create");
+    showRegisterPanel();
+    setInlineMessage(lookupMessage, "Google Books から情報を読み込みました。内容を確認して登録してください。");
+  } catch (error) {
+    hideRegisterPanel();
+    setInlineMessage(lookupMessage, error.message || "書誌情報の取得に失敗しました。", true);
+  } finally {
+    lookupButton.disabled = false;
+    lookupButton.textContent = "ISBNから取得";
+  }
+}
+
+async function deleteCurrentBook() {
+  const isbn = normalizeIsbn(bookIsbnInput?.value);
+  if (!isbn) {
+    setInlineMessage(formMessage, "削除する ISBN が見つかりません。", true);
+    return;
+  }
+
+  const confirmed = window.confirm("この本を削除しますか？");
+  if (!confirmed) {
+    return;
+  }
+
+  const response = await fetch(`/api/books/${encodeURIComponent(isbn)}`, {
+    method: "DELETE"
+  });
+  const data = await response.json();
+
+  if (!response.ok) {
+    setInlineMessage(formMessage, data.error || "削除に失敗しました。", true);
+    return;
+  }
+
+  resetRegisterFlow();
+  setInlineMessage(formMessage, data.message || "削除しました。");
 }
 
 function renderBooks(books) {
@@ -349,58 +520,10 @@ async function loadBookDetailPage() {
   }
 }
 
-async function lookupBookByIsbn() {
-  clearInlineMessage(lookupMessage);
-  const isbn = normalizeIsbn(bookIsbnInput?.value);
-
-  if (!isbn) {
-    setInlineMessage(lookupMessage, "ISBN を入力してください。", true);
-    return;
-  }
-
-  lookupButton.disabled = true;
-  lookupButton.textContent = "取得中...";
-
-  try {
-    const response = await fetch(`/api/book-info?isbn=${encodeURIComponent(isbn)}`);
-    const data = await response.json();
-
-    if (!response.ok) {
-      setInlineMessage(lookupMessage, data.error || "書誌情報の取得に失敗しました。", true);
-      return;
-    }
-
-    bookTitleInput.value = data.book.title || "";
-    bookAuthorInput.value = data.book.author || "";
-    bookPublisherInput.value = data.book.publisher || "";
-    if (bookPublishedDateInput) {
-      bookPublishedDateInput.value = normalizeDate(data.book.publishedDate);
-    }
-    bookCoverInput.value = data.book.coverUrl || "";
-    updateCoverPreview(data.book.coverUrl, data.book.title);
-
-    const apiKeyNote = data.apiKeyConfigured
-      ? ""
-      : " API キー未設定のため、利用制限にかかる可能性があります。";
-    setInlineMessage(lookupMessage, `Google Books から情報を取得しました。${apiKeyNote}`);
-  } catch {
-    setInlineMessage(lookupMessage, "書誌情報の取得に失敗しました。", true);
-  } finally {
-    lookupButton.disabled = false;
-    lookupButton.textContent = "ISBNから取得";
-  }
-}
-
 if (bookForm) {
+  resetRegisterFlow();
+
   lookupButton.addEventListener("click", lookupBookByIsbn);
-
-  bookIsbnInput.addEventListener("blur", async () => {
-    const isbn = normalizeIsbn(bookIsbnInput.value);
-
-    if (isbn.length === 10 || isbn.length === 13) {
-      await lookupBookByIsbn();
-    }
-  });
 
   bookCoverInput.addEventListener("input", () => {
     updateCoverPreview(bookCoverInput.value, bookTitleInput.value);
@@ -410,8 +533,22 @@ if (bookForm) {
     updateCoverPreview(bookCoverInput.value, bookTitleInput.value);
   });
 
+  cancelRegisterButton?.addEventListener("click", () => {
+    resetRegisterFlow();
+  });
+
+  deleteBookButton?.addEventListener("click", async () => {
+    await deleteCurrentBook();
+  });
+
   bookForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    if (registerPanel?.classList.contains("hidden")) {
+      await lookupBookByIsbn();
+      return;
+    }
+
     clearInlineMessage(formMessage);
 
     const formData = new FormData(bookForm);
@@ -423,38 +560,19 @@ if (bookForm) {
       publishedDate: normalizeDate(formData.get("publishedDate")),
       purchaseDate: normalizeDate(formData.get("purchaseDate")) || getTodayString(),
       coverUrl: String(formData.get("coverUrl") || "").trim(),
-      overwrite: false
+      overwrite: currentRegisterMode === "update"
     };
 
-    let { response, data } = await submitBook(payload);
-
-    if (response.status === 409) {
-      const confirmed = window.confirm(data.error || "同じ ISBN の本が存在します。上書きしますか？");
-      if (!confirmed) {
-        setInlineMessage(formMessage, "登録をキャンセルしました。", true);
-        return;
-      }
-
-      ({ response, data } = await submitBook({
-        ...payload,
-        overwrite: true
-      }));
-    }
+    const { response, data } = await submitBook(payload);
 
     if (!response.ok) {
-      setInlineMessage(formMessage, data.error || "登録に失敗しました。", true);
+      setInlineMessage(formMessage, data.error || "保存に失敗しました。", true);
       return;
     }
 
-    bookForm.reset();
-    applyDefaultPurchaseDate();
-    clearInlineMessage(lookupMessage);
-    setInlineMessage(formMessage, data.message || "登録しました。");
-    updateCoverPreview("");
+    resetRegisterFlow();
+    setInlineMessage(formMessage, data.message || "保存しました。");
   });
-
-  applyDefaultPurchaseDate();
-  updateCoverPreview("");
 }
 
 if (bookList) {

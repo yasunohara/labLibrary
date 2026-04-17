@@ -11,7 +11,7 @@
       <header class="hero compact">
         <p class="eyebrow">Register Book</p>
         <h1>本の登録</h1>
-        <p class="lead">Google Books から情報を取得しながら、新しい本を登録します。</p>
+        <p class="lead">まず ISBN を入力し、読み込んだ情報を確認してから登録・更新・削除を行います。</p>
       </header>
 
       <nav class="app-nav">
@@ -30,41 +30,49 @@
             </div>
           </label>
 
-          <div class="book-form-layout">
-            <div class="book-form-fields">
-              <label>
-                <span>タイトル</span>
-                <input id="book-title" name="title" placeholder="本のタイトル" required />
-              </label>
+          <div id="register-panel" class="register-panel hidden">
+            <p id="register-mode-label" class="section-label"></p>
 
-              <label>
-                <span>著者</span>
-                <input id="book-author" name="author" placeholder="著者名" />
-              </label>
+            <div class="book-form-layout">
+              <div class="book-form-fields">
+                <label>
+                  <span>タイトル</span>
+                  <input id="book-title" name="title" placeholder="本のタイトル" required />
+                </label>
 
-              <label>
-                <span>出版社</span>
-                <input id="book-publisher" name="publisher" placeholder="出版社名" />
-              </label>
+                <label>
+                  <span>著者</span>
+                  <input id="book-author" name="author" placeholder="著者名" />
+                </label>
 
-              <label>
-                <span>出版年月日</span>
-                <input id="book-published-date" name="publishedDate" type="date" />
-              </label>
+                <label>
+                  <span>出版社</span>
+                  <input id="book-publisher" name="publisher" placeholder="出版社名" />
+                </label>
 
-              <label>
-                <span>購入日</span>
-                <input id="book-purchase-date" name="purchaseDate" type="date" />
-              </label>
+                <label>
+                  <span>出版年月日</span>
+                  <input id="book-published-date" name="publishedDate" type="date" />
+                </label>
 
-              <input id="book-cover-url" name="coverUrl" type="hidden" />
+                <label>
+                  <span>購入日</span>
+                  <input id="book-purchase-date" name="purchaseDate" type="date" />
+                </label>
 
-              <button type="submit" class="submit-button">登録する</button>
-            </div>
+                <input id="book-cover-url" name="coverUrl" type="hidden" />
 
-            <div class="book-form-preview">
-              <div class="cover-preview empty" id="cover-preview">
-                <span>表紙プレビューはここに表示されます。</span>
+                <div class="action-row">
+                  <button id="save-button" type="submit" class="submit-button">確認して登録</button>
+                  <button id="delete-book-button" type="button" class="delete-button hidden">削除する</button>
+                  <button id="cancel-register-button" type="button" class="ghost-button">やり直す</button>
+                </div>
+              </div>
+
+              <div class="book-form-preview">
+                <div class="cover-preview empty" id="cover-preview">
+                  <span>表紙プレビューはここに表示されます。</span>
+                </div>
               </div>
             </div>
           </div>
