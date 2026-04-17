@@ -1,7 +1,3 @@
-const checkForm = document.getElementById("check-form");
-const checkIsbnInput = document.getElementById("check-isbn");
-const checkResult = document.getElementById("check-result");
-
 const bookForm = document.getElementById("book-form");
 const bookIsbnInput = document.getElementById("book-isbn");
 const bookTitleInput = document.getElementById("book-title");
@@ -66,15 +62,6 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-function setCheckResult(kind, message) {
-  if (!checkResult) {
-    return;
-  }
-
-  checkResult.className = `result-card ${kind}`;
-  checkResult.textContent = message;
 }
 
 function setInlineMessage(target, message, isError = false) {
@@ -168,7 +155,13 @@ function getFilteredBooks() {
       return true;
     }
 
-    const targetText = selectedScope === "author" ? book.author : book.title;
+    const targetText =
+      selectedScope === "author"
+        ? book.author
+        : selectedScope === "isbn"
+          ? book.isbn
+          : book.title;
+
     return normalizeSearchText(targetText).includes(query);
   });
 }
@@ -398,35 +391,6 @@ async function lookupBookByIsbn() {
   }
 }
 
-if (checkForm) {
-  checkForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const isbn = normalizeIsbn(checkIsbnInput.value);
-
-    if (!isbn) {
-      setCheckResult("error", "ISBN を入力してください。");
-      return;
-    }
-
-    const response = await fetch(`/api/check?isbn=${encodeURIComponent(isbn)}`);
-    const data = await response.json();
-
-    if (!response.ok) {
-      setCheckResult("error", data.error || "確認に失敗しました。");
-      return;
-    }
-
-    if (data.owned) {
-      const author = data.book.author ? ` / ${data.book.author}` : "";
-      const publisher = data.book.publisher ? ` / ${data.book.publisher}` : "";
-      setCheckResult("owned", `登録済み: ${data.book.title}${author}${publisher}`);
-      return;
-    }
-
-    setCheckResult("missing", "この ISBN の本はまだ登録されていません。");
-  });
-}
-
 if (bookForm) {
   lookupButton.addEventListener("click", lookupBookByIsbn);
 
@@ -496,13 +460,13 @@ if (bookForm) {
 if (bookList) {
   updateBookListViewButtons();
 
-  viewShelfButton?.addEventListener("click", async () => {
+  viewShelfButton?.addEventListener("click", () => {
     currentBookListView = "shelf";
     updateBookListViewButtons();
     renderFilteredBooks();
   });
 
-  viewTableButton?.addEventListener("click", async () => {
+  viewTableButton?.addEventListener("click", () => {
     currentBookListView = "table";
     updateBookListViewButtons();
     renderFilteredBooks();

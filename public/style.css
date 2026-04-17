@@ -320,6 +320,7 @@ button:disabled {
   align-items: center;
   gap: 8px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .filter-option input {
