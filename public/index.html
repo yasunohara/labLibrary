@@ -8,94 +8,37 @@
   </head>
   <body>
     <main class="page">
-      <section class="hero">
+      <header class="hero">
         <p class="eyebrow">Local Library App</p>
-        <h1>ISBNで持っている本をすぐ確認</h1>
+        <h1>ISBN所蔵チェッカー</h1>
         <p class="lead">
-          ISBNを入れると、所蔵確認だけでなく Google Books からタイトル、著者、出版社、表紙画像を取得して登録できます。
+          ISBNで本を確認、登録、一覧管理できるローカルWebアプリです。
         </p>
-      </section>
+      </header>
 
-      <section class="panel">
-        <div class="panel-header">
-          <h2>所蔵チェック</h2>
-          <p>ISBN-10 / ISBN-13 に対応</p>
-        </div>
+      <nav class="app-nav">
+        <a class="nav-link active" href="/">ホーム</a>
+        <a class="nav-link" href="/check.html">所蔵確認</a>
+        <a class="nav-link" href="/register.html">本を登録</a>
+        <a class="nav-link" href="/books.html">一覧を見る</a>
+      </nav>
 
-        <form id="check-form" class="form-grid">
-          <label>
-            <span>ISBN</span>
-            <input id="check-isbn" name="isbn" placeholder="9784101010014" required />
-          </label>
-          <button type="submit">確認する</button>
-        </form>
+      <section class="panel home-grid">
+        <a class="feature-card" href="/check.html">
+          <h2>所蔵確認</h2>
+          <p>ISBNを入力して、すでに持っている本かどうかを確認します。</p>
+        </a>
 
-        <div id="check-result" class="result-card neutral">
-          ここに確認結果が表示されます。
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
+        <a class="feature-card" href="/register.html">
           <h2>本を登録</h2>
-          <p>ISBNから情報を取得してから登録できます</p>
-        </div>
+          <p>Google Books から情報を取得しながら、新しい本を登録します。</p>
+        </a>
 
-        <form id="book-form" class="form-grid">
-          <label>
-            <span>ISBN</span>
-            <div class="input-with-button">
-              <input id="book-isbn" name="isbn" placeholder="9784101010014" required />
-              <button id="lookup-button" type="button">ISBNから取得</button>
-            </div>
-          </label>
-
-          <div class="book-form-layout">
-            <div class="book-form-fields">
-              <label>
-                <span>タイトル</span>
-                <input id="book-title" name="title" placeholder="本のタイトル" required />
-              </label>
-
-              <label>
-                <span>著者</span>
-                <input id="book-author" name="author" placeholder="著者名" />
-              </label>
-
-              <label>
-                <span>出版社</span>
-                <input id="book-publisher" name="publisher" placeholder="出版社名" />
-              </label>
-
-              <input id="book-cover-url" name="coverUrl" type="hidden" />
-
-              <button type="submit" class="submit-button">登録する</button>
-            </div>
-
-            <div class="book-form-preview">
-              <div class="cover-preview empty" id="cover-preview">
-                <span>表紙プレビューはここに表示されます。</span>
-              </div>
-            </div>
-          </div>
-        </form>
-
-        <p id="lookup-message" class="inline-message"></p>
-        <p id="form-message" class="inline-message"></p>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
+        <a class="feature-card" href="/books.html">
           <h2>所蔵一覧</h2>
-          <p>このPC内の `books.db` に保存されます</p>
-        </div>
-
-        <div id="book-list" class="book-list empty">
-          まだ本が登録されていません。
-        </div>
+          <p>登録済みの本を、表紙つきで一覧表示して管理します。</p>
+        </a>
       </section>
     </main>
-
-    <script src="/app.js"></script>
   </body>
 </html>
