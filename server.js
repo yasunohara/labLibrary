@@ -4,10 +4,10 @@ const path = require("node:path");
 const { URL } = require("node:url");
 const { DatabaseSync } = require("node:sqlite");
 
-const HOST = "127.0.0.1";
+const HOST = process.env.HOST || "127.0.0.1";
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
-const DB_PATH = path.join(__dirname, "books.db");
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, "books.db");
 const GOOGLE_BOOKS_API_KEY = process.env.GOOGLE_BOOKS_API_KEY || "";
 
 const db = new DatabaseSync(DB_PATH);

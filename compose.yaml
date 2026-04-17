@@ -1,0 +1,15 @@
+services:
+  library-checker:
+    build:
+      context: .
+    container_name: library-checker
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DB_PATH: /data/books.db
+      GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
+    volumes:
+      - ./data:/data
