@@ -1,0 +1,9 @@
+{
+  "name": "library-checker",
+  "version": "1.0.0",
+  "description": "Local web app for checking whether a book is owned by ISBN.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

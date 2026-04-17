@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ISBN所蔵チェッカー</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <p class="eyebrow">Local Library App</p>
+        <h1>ISBNで持っている本をすぐ確認</h1>
+        <p class="lead">
+          ISBN を入れると、手元の蔵書にあるかどうかをローカルSQLiteデータベースで確認できます。
+        </p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>所蔵チェック</h2>
+          <p>ISBN-10 / ISBN-13 に対応</p>
+        </div>
+
+        <form id="check-form" class="form-grid">
+          <label>
+            <span>ISBN</span>
+            <input id="check-isbn" name="isbn" placeholder="9784101010014" required />
+          </label>
+          <button type="submit">確認する</button>
+        </form>
+
+        <div id="check-result" class="result-card neutral">
+          ここに確認結果が表示されます。
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>本を登録</h2>
+          <p>同じISBNを登録すると内容を更新します</p>
+        </div>
+
+        <form id="book-form" class="form-grid two-column">
+          <label>
+            <span>ISBN</span>
+            <input id="book-isbn" name="isbn" placeholder="9784101010014" required />
+          </label>
+          <label>
+            <span>タイトル</span>
+            <input id="book-title" name="title" placeholder="本のタイトル" required />
+          </label>
+          <label>
+            <span>著者</span>
+            <input id="book-author" name="author" placeholder="著者名（任意）" />
+          </label>
+          <button type="submit">登録する</button>
+        </form>
+
+        <p id="form-message" class="inline-message"></p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>所蔵一覧</h2>
+          <p>このPC内の `books.db` に保存されます</p>
+        </div>
+
+        <div id="book-list" class="book-list empty">
+          まだ本が登録されていません。
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
