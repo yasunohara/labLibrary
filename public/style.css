@@ -283,6 +283,50 @@ button:disabled {
   color: white;
 }
 
+.filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(220px, 0.8fr);
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.filter-search {
+  align-self: end;
+}
+
+.filter-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  justify-self: end;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.filter-scope legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.filter-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.filter-option input {
+  width: auto;
+  margin: 0;
+}
+
 .cover-preview {
   display: grid;
   place-items: center;
@@ -639,5 +683,9 @@ button:disabled {
 
   .view-toggle-button {
     flex: 1 1 0;
+  }
+
+  .filter-grid {
+    grid-template-columns: 1fr;
   }
 }

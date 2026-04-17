@@ -26,6 +26,23 @@
           <button id="view-shelf" class="view-toggle-button active" type="button" data-view="shelf">画像一覧</button>
           <button id="view-table" class="view-toggle-button" type="button" data-view="table">表一覧</button>
         </div>
+        <div class="filter-grid">
+          <label class="filter-search">
+            <span>絞り込み検索</span>
+            <input id="filter-query" type="search" placeholder="キーワードを入力" />
+          </label>
+          <fieldset class="filter-scope">
+            <legend>検索対象</legend>
+            <label class="filter-option">
+              <input type="radio" name="filter-scope" value="title" checked />
+              <span>タイトル</span>
+            </label>
+            <label class="filter-option">
+              <input type="radio" name="filter-scope" value="author" />
+              <span>著者</span>
+            </label>
+          </fieldset>
+        </div>
         <div id="book-list" class="book-list empty">まだ本は登録されていません。</div>
         <p id="form-message" class="inline-message"></p>
       </section>

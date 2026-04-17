@@ -20,8 +20,11 @@ const bookDetail = document.getElementById("book-detail");
 const detailMessage = document.getElementById("detail-message");
 const viewShelfButton = document.getElementById("view-shelf");
 const viewTableButton = document.getElementById("view-table");
+const filterQueryInput = document.getElementById("filter-query");
+const filterScopeInputs = document.querySelectorAll('input[name="filter-scope"]');
 
 let currentBookListView = "shelf";
+let allBooks = [];
 
 function normalizeIsbn(value) {
   return String(value || "").replace(/[^0-9Xx]/g, "").toUpperCase();
@@ -152,10 +155,33 @@ function updateBookListViewButtons() {
   viewTableButton.setAttribute("aria-selected", String(!isShelfView));
 }
 
+function normalizeSearchText(value) {
+  return String(value || "").trim().toLocaleLowerCase("ja-JP");
+}
+
+function getFilteredBooks() {
+  const query = normalizeSearchText(filterQueryInput?.value);
+  const selectedScope = Array.from(filterScopeInputs).find((input) => input.checked)?.value || "title";
+
+  return allBooks.filter((book) => {
+    if (!query) {
+      return true;
+    }
+
+    const targetText = selectedScope === "author" ? book.author : book.title;
+    return normalizeSearchText(targetText).includes(query);
+  });
+}
+
+function renderFilteredBooks() {
+  renderBooks(getFilteredBooks());
+}
+
 async function fetchBooks() {
   const response = await fetch("/api/books");
   const data = await response.json();
-  renderBooks(data.books || []);
+  allBooks = data.books || [];
+  renderFilteredBooks();
 }
 
 async function fetchBookByIsbn(isbn) {
@@ -184,7 +210,9 @@ function renderBooks(books) {
 
   if (!books.length) {
     bookList.className = "book-list empty";
-    bookList.textContent = "まだ本は登録されていません。";
+    bookList.textContent = allBooks.length
+      ? "条件に合う本が見つかりませんでした。"
+      : "まだ本は登録されていません。";
     return;
   }
 
@@ -471,13 +499,23 @@ if (bookList) {
   viewShelfButton?.addEventListener("click", async () => {
     currentBookListView = "shelf";
     updateBookListViewButtons();
-    await fetchBooks();
+    renderFilteredBooks();
   });
 
   viewTableButton?.addEventListener("click", async () => {
     currentBookListView = "table";
     updateBookListViewButtons();
-    await fetchBooks();
+    renderFilteredBooks();
+  });
+
+  filterQueryInput?.addEventListener("input", () => {
+    renderFilteredBooks();
+  });
+
+  filterScopeInputs.forEach((input) => {
+    input.addEventListener("change", () => {
+      renderFilteredBooks();
+    });
   });
 
   fetchBooks().catch(() => {
