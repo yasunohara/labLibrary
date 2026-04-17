@@ -12,6 +12,7 @@ const lookupMessage = document.getElementById("lookup-message");
 const registerPanel = document.getElementById("register-panel");
 const registerModeLabel = document.getElementById("register-mode-label");
 const saveButton = document.getElementById("save-button");
+const refreshMetadataButton = document.getElementById("refresh-metadata-button");
 const deleteBookButton = document.getElementById("delete-book-button");
 const cancelRegisterButton = document.getElementById("cancel-register-button");
 
@@ -242,19 +243,21 @@ function hideRegisterPanel() {
 function setRegisterMode(mode) {
   currentRegisterMode = mode;
 
-  if (!saveButton || !deleteBookButton || !registerModeLabel) {
+  if (!saveButton || !refreshMetadataButton || !deleteBookButton || !registerModeLabel) {
     return;
   }
 
   if (mode === "update") {
     registerModeLabel.textContent = "登録済みの本です。内容を確認して更新または削除できます。";
-    saveButton.textContent = "更新する";
+    saveButton.textContent = "更新";
+    refreshMetadataButton.classList.remove("hidden");
     deleteBookButton.classList.remove("hidden");
     return;
   }
 
   registerModeLabel.textContent = "新しい本です。内容を確認して登録してください。";
-  saveButton.textContent = "確認して登録";
+  saveButton.textContent = "登録";
+  refreshMetadataButton.classList.add("hidden");
   deleteBookButton.classList.add("hidden");
 }
 
@@ -266,6 +269,17 @@ function fillRegisterFields(values) {
   bookPurchaseDateInput.value = normalizeDate(values.purchaseDate || values.purchase_date) || getTodayString();
   bookCoverInput.value = values.coverUrl || values.cover_url || "";
   updateCoverPreview(bookCoverInput.value, bookTitleInput.value);
+}
+
+function getCurrentRegisterValues() {
+  return {
+    title: bookTitleInput.value,
+    author: bookAuthorInput.value,
+    publisher: bookPublisherInput.value,
+    publishedDate: bookPublishedDateInput.value,
+    purchaseDate: bookPurchaseDateInput.value,
+    coverUrl: bookCoverInput.value
+  };
 }
 
 function resetRegisterFlow() {
@@ -293,7 +307,7 @@ async function lookupBookByIsbn() {
   }
 
   lookupButton.disabled = true;
-  lookupButton.textContent = "取得中...";
+  lookupButton.textContent = "検索中...";
 
   try {
     const existingBook = await findExistingBookByIsbn(isbn);
@@ -337,7 +351,7 @@ async function lookupBookByIsbn() {
     setInlineMessage(lookupMessage, error.message || "書誌情報の取得に失敗しました。", true);
   } finally {
     lookupButton.disabled = false;
-    lookupButton.textContent = "ISBNから取得";
+    lookupButton.textContent = "検索";
   }
 }
 
@@ -365,6 +379,50 @@ async function deleteCurrentBook() {
 
   resetRegisterFlow();
   setInlineMessage(formMessage, data.message || "削除しました。");
+}
+
+async function refreshMetadataForCurrentBook() {
+  const isbn = normalizeIsbn(bookIsbnInput?.value);
+  if (!isbn) {
+    setInlineMessage(formMessage, "ISBN を入力してください。", true);
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Google Book APIから本の情報を再取得します。既存の情報は消えますが、よろしいですか？"
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  refreshMetadataButton.disabled = true;
+  refreshMetadataButton.textContent = "取得中...";
+  clearInlineMessage(formMessage);
+
+  try {
+    const metadataBook = await lookupMetadataByIsbn(isbn);
+
+    if (!metadataBook) {
+      setInlineMessage(formMessage, "Google Books で本の情報が見つかりませんでした。", true);
+      return;
+    }
+
+    const currentValues = getCurrentRegisterValues();
+    fillRegisterFields({
+      ...currentValues,
+      title: metadataBook.title || currentValues.title,
+      author: metadataBook.author || currentValues.author,
+      publisher: metadataBook.publisher || currentValues.publisher,
+      publishedDate: metadataBook.publishedDate || currentValues.publishedDate,
+      coverUrl: metadataBook.coverUrl || currentValues.coverUrl
+    });
+    setInlineMessage(formMessage, "Google Books から情報を取得しました。");
+  } catch (error) {
+    setInlineMessage(formMessage, error.message || "書誌情報の取得に失敗しました。", true);
+  } finally {
+    refreshMetadataButton.disabled = false;
+    refreshMetadataButton.textContent = "本の情報再取得";
+  }
 }
 
 function renderBooks(books) {
@@ -535,6 +593,10 @@ if (bookForm) {
 
   cancelRegisterButton?.addEventListener("click", () => {
     resetRegisterFlow();
+  });
+
+  refreshMetadataButton?.addEventListener("click", async () => {
+    await refreshMetadataForCurrentBook();
   });
 
   deleteBookButton?.addEventListener("click", async () => {

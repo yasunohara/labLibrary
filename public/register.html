@@ -26,7 +26,7 @@
             <span>ISBN</span>
             <div class="input-with-button">
               <input id="book-isbn" name="isbn" placeholder="9784101010014" required />
-              <button id="lookup-button" type="button">ISBNから取得</button>
+              <button id="lookup-button" type="button">検索</button>
             </div>
           </label>
 
@@ -63,7 +63,8 @@
                 <input id="book-cover-url" name="coverUrl" type="hidden" />
 
                 <div class="action-row">
-                  <button id="save-button" type="submit" class="submit-button">確認して登録</button>
+                  <button id="save-button" type="submit" class="submit-button">登録</button>
+                  <button id="refresh-metadata-button" type="button" class="ghost-button hidden">本の情報再取得</button>
                   <button id="delete-book-button" type="button" class="delete-button hidden">削除する</button>
                   <button id="cancel-register-button" type="button" class="ghost-button">やり直す</button>
                 </div>
