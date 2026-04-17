@@ -7,6 +7,8 @@ const bookIsbnInput = document.getElementById("book-isbn");
 const bookTitleInput = document.getElementById("book-title");
 const bookAuthorInput = document.getElementById("book-author");
 const bookPublisherInput = document.getElementById("book-publisher");
+const bookPublishedDateInput = document.getElementById("book-published-date");
+const bookPurchaseDateInput = document.getElementById("book-purchase-date");
 const bookCoverInput = document.getElementById("book-cover-url");
 const coverPreview = document.getElementById("cover-preview");
 const lookupButton = document.getElementById("lookup-button");
@@ -17,6 +19,35 @@ const bookList = document.getElementById("book-list");
 
 function normalizeIsbn(value) {
   return String(value || "").replace(/[^0-9Xx]/g, "").toUpperCase();
+}
+
+function normalizeDate(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "";
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return text;
+  }
+
+  if (/^\d{4}-\d{2}$/.test(text)) {
+    return `${text}-01`;
+  }
+
+  if (/^\d{4}$/.test(text)) {
+    return `${text}-01-01`;
+  }
+
+  return "";
+}
+
+function getTodayString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function escapeHtml(value) {
@@ -70,8 +101,25 @@ function updateCoverPreview(url, title = "") {
 
   coverPreview.className = "cover-preview";
   coverPreview.innerHTML = `
-    <img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(title || "書影")}" loading="lazy" />
+    <img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(title || "表紙")}" loading="lazy" />
   `;
+}
+
+function formatDateLabel(value) {
+  const normalized = normalizeDate(value);
+  if (!normalized) {
+    return "未登録";
+  }
+
+  return normalized.replaceAll("-", "/");
+}
+
+function applyDefaultPurchaseDate() {
+  if (!bookPurchaseDateInput) {
+    return;
+  }
+
+  bookPurchaseDateInput.value = getTodayString();
 }
 
 async function fetchBooks() {
@@ -100,7 +148,7 @@ function renderBooks(books) {
 
   if (!books.length) {
     bookList.className = "book-list empty";
-    bookList.textContent = "まだ本が登録されていません。";
+    bookList.textContent = "まだ本は登録されていません。";
     return;
   }
 
@@ -120,6 +168,8 @@ function renderBooks(books) {
               <p>ISBN: ${escapeHtml(book.isbn)}</p>
               <p>著者: ${escapeHtml(book.author || "未登録")}</p>
               <p>出版社: ${escapeHtml(book.publisher || "未登録")}</p>
+              <p>出版年月日: ${escapeHtml(formatDateLabel(book.published_date))}</p>
+              <p>購入日: ${escapeHtml(formatDateLabel(book.purchase_date))}</p>
             </div>
           </div>
           <button class="delete-button" data-isbn="${escapeHtml(book.isbn)}">削除</button>
@@ -134,7 +184,7 @@ async function lookupBookByIsbn() {
   const isbn = normalizeIsbn(bookIsbnInput?.value);
 
   if (!isbn) {
-    setInlineMessage(lookupMessage, "ISBNを入力してください。", true);
+    setInlineMessage(lookupMessage, "ISBN を入力してください。", true);
     return;
   }
 
@@ -153,10 +203,15 @@ async function lookupBookByIsbn() {
     bookTitleInput.value = data.book.title || "";
     bookAuthorInput.value = data.book.author || "";
     bookPublisherInput.value = data.book.publisher || "";
+    if (bookPublishedDateInput) {
+      bookPublishedDateInput.value = normalizeDate(data.book.publishedDate);
+    }
     bookCoverInput.value = data.book.coverUrl || "";
     updateCoverPreview(data.book.coverUrl, data.book.title);
 
-    const apiKeyNote = data.apiKeyConfigured ? "" : " APIキー未設定のため、利用量が増えると制限される可能性があります。";
+    const apiKeyNote = data.apiKeyConfigured
+      ? ""
+      : " API キー未設定のため、利用制限にかかる可能性があります。";
     setInlineMessage(lookupMessage, `Google Books から情報を取得しました。${apiKeyNote}`);
   } catch {
     setInlineMessage(lookupMessage, "書誌情報の取得に失敗しました。", true);
@@ -172,7 +227,7 @@ if (checkForm) {
     const isbn = normalizeIsbn(checkIsbnInput.value);
 
     if (!isbn) {
-      setCheckResult("error", "ISBNを入力してください。");
+      setCheckResult("error", "ISBN を入力してください。");
       return;
     }
 
@@ -187,11 +242,11 @@ if (checkForm) {
     if (data.owned) {
       const author = data.book.author ? ` / ${data.book.author}` : "";
       const publisher = data.book.publisher ? ` / ${data.book.publisher}` : "";
-      setCheckResult("owned", `所蔵あり: ${data.book.title}${author}${publisher}`);
+      setCheckResult("owned", `登録済み: ${data.book.title}${author}${publisher}`);
       return;
     }
 
-    setCheckResult("missing", "このISBNの本はまだ登録されていません。");
+    setCheckResult("missing", "この ISBN の本はまだ登録されていません。");
   });
 }
 
@@ -224,6 +279,8 @@ if (bookForm) {
       title: String(formData.get("title") || "").trim(),
       author: String(formData.get("author") || "").trim(),
       publisher: String(formData.get("publisher") || "").trim(),
+      publishedDate: normalizeDate(formData.get("publishedDate")),
+      purchaseDate: normalizeDate(formData.get("purchaseDate")) || getTodayString(),
       coverUrl: String(formData.get("coverUrl") || "").trim(),
       overwrite: false
     };
@@ -231,7 +288,7 @@ if (bookForm) {
     let { response, data } = await submitBook(payload);
 
     if (response.status === 409) {
-      const confirmed = window.confirm(data.error || "同じISBNの本が登録済みです。上書きしますか？");
+      const confirmed = window.confirm(data.error || "同じ ISBN の本が存在します。上書きしますか？");
       if (!confirmed) {
         setInlineMessage(formMessage, "登録をキャンセルしました。", true);
         return;
@@ -249,11 +306,13 @@ if (bookForm) {
     }
 
     bookForm.reset();
+    applyDefaultPurchaseDate();
     clearInlineMessage(lookupMessage);
     setInlineMessage(formMessage, data.message || "登録しました。");
     updateCoverPreview("");
   });
 
+  applyDefaultPurchaseDate();
   updateCoverPreview("");
 }
 

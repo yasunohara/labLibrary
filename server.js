@@ -18,34 +18,38 @@ db.exec(`
     title TEXT NOT NULL,
     author TEXT DEFAULT '',
     publisher TEXT DEFAULT '',
+    published_date TEXT DEFAULT '',
+    purchase_date TEXT DEFAULT '',
     cover_url TEXT DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
 `);
 
 ensureColumn("books", "publisher", "TEXT DEFAULT ''");
+ensureColumn("books", "published_date", "TEXT DEFAULT ''");
+ensureColumn("books", "purchase_date", "TEXT DEFAULT ''");
 ensureColumn("books", "cover_url", "TEXT DEFAULT ''");
 
 const selectBookByIsbn = db.prepare(`
-  SELECT isbn, title, author, publisher, cover_url, created_at
+  SELECT isbn, title, author, publisher, published_date, purchase_date, cover_url, created_at
   FROM books
   WHERE isbn = ?
 `);
 
 const selectAllBooks = db.prepare(`
-  SELECT isbn, title, author, publisher, cover_url, created_at
+  SELECT isbn, title, author, publisher, published_date, purchase_date, cover_url, created_at
   FROM books
   ORDER BY created_at DESC, title ASC
 `);
 
 const insertBook = db.prepare(`
-  INSERT INTO books (isbn, title, author, publisher, cover_url)
-  VALUES (?, ?, ?, ?, ?)
+  INSERT INTO books (isbn, title, author, publisher, published_date, purchase_date, cover_url)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
 `);
 
 const updateBook = db.prepare(`
   UPDATE books
-  SET title = ?, author = ?, publisher = ?, cover_url = ?
+  SET title = ?, author = ?, publisher = ?, published_date = ?, purchase_date = ?, cover_url = ?
   WHERE isbn = ?
 `);
 
@@ -99,6 +103,35 @@ function normalizeImageUrl(url) {
 
 function isValidIsbn(isbn) {
   return /^(?:\d{10}|\d{13}|\d{9}X)$/.test(isbn);
+}
+
+function normalizeStoredDate(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "";
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return text;
+  }
+
+  if (/^\d{4}-\d{2}$/.test(text)) {
+    return `${text}-01`;
+  }
+
+  if (/^\d{4}$/.test(text)) {
+    return `${text}-01-01`;
+  }
+
+  return "";
+}
+
+function defaultPurchaseDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function readRequestBody(request) {
@@ -197,7 +230,7 @@ async function fetchBookMetadataByIsbn(isbn) {
         author: Array.isArray(volumeInfo.authors) ? volumeInfo.authors.join(", ") : "",
         publisher: volumeInfo.publisher || "",
         coverUrl,
-        publishedDate: volumeInfo.publishedDate || "",
+        publishedDate: normalizeStoredDate(volumeInfo.publishedDate),
         description: volumeInfo.description || "",
         infoLink: volumeInfo.infoLink || "",
         source: "google-books"
@@ -269,6 +302,8 @@ async function handleApi(request, response, url) {
     const title = String(body.title || "").trim();
     const author = String(body.author || "").trim();
     const publisher = String(body.publisher || "").trim();
+    const publishedDate = normalizeStoredDate(body.publishedDate);
+    const purchaseDate = normalizeStoredDate(body.purchaseDate) || defaultPurchaseDate();
     const coverUrl = normalizeImageUrl(body.coverUrl);
     const overwrite = Boolean(body.overwrite);
 
@@ -292,13 +327,13 @@ async function handleApi(request, response, url) {
         return;
       }
 
-      updateBook.run(title, author, publisher, coverUrl, isbn);
+      updateBook.run(title, author, publisher, publishedDate, purchaseDate, coverUrl, isbn);
       const book = selectBookByIsbn.get(isbn);
       sendJson(response, 200, { message: "登録済みの本を更新しました。", book });
       return;
     }
 
-    insertBook.run(isbn, title, author, publisher, coverUrl);
+    insertBook.run(isbn, title, author, publisher, publishedDate, purchaseDate, coverUrl);
     const book = selectBookByIsbn.get(isbn);
     sendJson(response, 201, { message: "本を登録しました。", book });
     return;

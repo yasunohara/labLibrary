@@ -3,21 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>本を登録 | ISBN所蔵チェッカー</title>
+    <title>本の登録 | ISBNチェッカー</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
     <main class="page">
       <header class="hero compact">
         <p class="eyebrow">Register Book</p>
-        <h1>本を登録</h1>
-        <p class="lead">Google Books から情報を取得しながら、本を登録します。</p>
+        <h1>本の登録</h1>
+        <p class="lead">Google Books から情報を取得しながら、新しい本を登録します。</p>
       </header>
 
       <nav class="app-nav">
         <a class="nav-link" href="/">ホーム</a>
-        <a class="nav-link" href="/check.html">所蔵確認</a>
-        <a class="nav-link active" href="/register.html">本を登録</a>
+        <a class="nav-link" href="/check.html">ISBN確認</a>
+        <a class="nav-link active" href="/register.html">本の登録</a>
         <a class="nav-link" href="/books.html">一覧を見る</a>
       </nav>
 
@@ -46,6 +46,16 @@
               <label>
                 <span>出版社</span>
                 <input id="book-publisher" name="publisher" placeholder="出版社名" />
+              </label>
+
+              <label>
+                <span>出版年月日</span>
+                <input id="book-published-date" name="publishedDate" type="date" />
+              </label>
+
+              <label>
+                <span>購入日</span>
+                <input id="book-purchase-date" name="purchaseDate" type="date" />
               </label>
 
               <input id="book-cover-url" name="coverUrl" type="hidden" />
