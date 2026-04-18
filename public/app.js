@@ -137,6 +137,13 @@ function getBookDetailUrl(isbn) {
   return `/book.html?isbn=${encodeURIComponent(isbn)}`;
 }
 
+function getBookListUrl(scope, query) {
+  const params = new URLSearchParams();
+  params.set("scope", scope);
+  params.set("query", query);
+  return `/books.html?${params.toString()}`;
+}
+
 function updateBookListViewButtons() {
   if (!viewShelfButton || !viewTableButton) {
     return;
@@ -151,6 +158,55 @@ function updateBookListViewButtons() {
 
 function normalizeSearchText(value) {
   return String(value || "").trim().toLocaleLowerCase("ja-JP");
+}
+
+function setBookFilter(scope, query) {
+  if (filterQueryInput) {
+    filterQueryInput.value = query;
+  }
+
+  const targetScope = Array.from(filterScopeInputs).find((input) => input.value === scope);
+  if (targetScope) {
+    targetScope.checked = true;
+  }
+
+  renderFilteredBooks();
+}
+
+function renderAuthorFilterLinks(authorText) {
+  const authors = String(authorText || "")
+    .split(",")
+    .map((author) => author.trim())
+    .filter(Boolean);
+
+  if (authors.length === 0) {
+    return "未登録";
+  }
+
+  return authors
+    .map(
+      (author) =>
+        `<button type="button" class="book-table-link author-filter-button" data-author="${escapeHtml(author)}">${escapeHtml(author)}</button>`
+    )
+    .join('<span class="author-separator">, </span>');
+}
+
+function renderAuthorFilterAnchors(authorText) {
+  const authors = String(authorText || "")
+    .split(",")
+    .map((author) => author.trim())
+    .filter(Boolean);
+
+  if (authors.length === 0) {
+    return "譛ｪ逋ｻ骭ｲ";
+  }
+
+  return authors
+    .map(
+      (author) =>
+        `<a class="book-table-link author-filter-link" href="${escapeHtml(getBookListUrl("author", author))}">${escapeHtml(author)}</a>`
+    )
+    .join('<span class="author-separator">, </span>');
 }
 
 function getFilteredBooks() {
@@ -177,10 +233,23 @@ function renderFilteredBooks() {
   renderBooks(getFilteredBooks());
 }
 
+function applyFiltersFromUrl() {
+  const url = new URL(window.location.href);
+  const scope = url.searchParams.get("scope");
+  const query = url.searchParams.get("query");
+
+  if (!scope || !query) {
+    return;
+  }
+
+  setBookFilter(scope, query);
+}
+
 async function fetchBooks() {
   const response = await fetch("/api/books");
   const data = await response.json();
   allBooks = data.books || [];
+  applyFiltersFromUrl();
   renderFilteredBooks();
 }
 
@@ -465,7 +534,7 @@ function renderBooks(books) {
                       </a>
                     </td>
                     <td><a class="book-table-link" href="${escapeHtml(getBookDetailUrl(book.isbn))}">${escapeHtml(book.title)}</a></td>
-                    <td>${escapeHtml(book.author || "未登録")}</td>
+                    <td>${renderAuthorFilterLinks(book.author)}</td>
                     <td>${escapeHtml(book.publisher || "未登録")}</td>
                     <td>${escapeHtml(formatDateLabel(book.published_date))}</td>
                     <td>${escapeHtml(formatDateLabel(book.purchase_date))}</td>
@@ -523,7 +592,7 @@ function renderBookDetail(book) {
         </div>
         <div>
           <dt>著者</dt>
-          <dd>${escapeHtml(book.author || "未登録")}</dd>
+          <dd>${renderAuthorFilterAnchors(book.author)}</dd>
         </div>
         <div>
           <dt>出版社</dt>
@@ -647,6 +716,16 @@ if (bookForm) {
 
 if (bookList) {
   updateBookListViewButtons();
+
+  bookList.addEventListener("click", (event) => {
+    const authorButton = event.target.closest(".author-filter-button");
+    if (!authorButton) {
+      return;
+    }
+
+    event.preventDefault();
+    setBookFilter("author", authorButton.dataset.author || "");
+  });
 
   viewShelfButton?.addEventListener("click", () => {
     currentBookListView = "shelf";

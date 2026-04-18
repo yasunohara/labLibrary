@@ -574,6 +574,32 @@ button:disabled {
   color: var(--primary-strong);
 }
 
+.author-filter-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--primary-strong);
+}
+
+.author-filter-button:hover {
+  color: #8c2f39;
+}
+
+.author-filter-link {
+  color: var(--primary-strong);
+}
+
+.author-filter-link:hover {
+  color: #8c2f39;
+}
+
+.author-separator {
+  color: var(--muted);
+}
+
 .book-cover.placeholder {
   display: grid;
   place-items: center;
