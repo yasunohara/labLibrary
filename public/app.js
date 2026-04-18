@@ -389,7 +389,7 @@ async function refreshMetadataForCurrentBook() {
   }
 
   const confirmed = window.confirm(
-    "Google Book APIから本の情報を再取得します。既存の情報は消えますが、よろしいですか？"
+    "Google Book APIから本の情報を再取得します。既存の情報は上書きされますが、よろしいですか？"
   );
   if (!confirmed) {
     return;

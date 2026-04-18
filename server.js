@@ -258,7 +258,7 @@ async function handleApi(request, response, url) {
     const isbn = normalizeIsbn(url.pathname.split("/").pop());
 
     if (!isValidIsbn(isbn)) {
-      sendJson(response, 400, { error: "削除対象のISBNが不正です。" });
+      sendJson(response, 400, { error: "ISBNが不正です。" });
       return;
     }
 
