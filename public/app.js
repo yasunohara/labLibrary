@@ -198,7 +198,7 @@ function renderAuthorFilterAnchors(authorText) {
     .filter(Boolean);
 
   if (authors.length === 0) {
-    return "譛ｪ逋ｻ骭ｲ";
+    return "未登録";
   }
 
   return authors
