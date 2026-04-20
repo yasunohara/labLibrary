@@ -134,6 +134,64 @@ function defaultPurchaseDate() {
   return `${year}-${month}-${day}`;
 }
 
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(String(value || ""), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function getBooksPage({ page, pageSize, scope, query }) {
+  const allowedScopes = new Set(["title", "author", "isbn"]);
+  const safeScope = allowedScopes.has(scope) ? scope : "title";
+  const safeQuery = String(query || "").trim();
+
+  const whereClause = safeQuery ? `WHERE ${safeScope} LIKE ? ESCAPE '\\'` : "";
+  const pattern = safeQuery
+    ? `%${safeQuery.replace(/([%_\\])/g, "\\$1")}%`
+    : null;
+  const offset = (page - 1) * pageSize;
+
+  const countSql = `SELECT COUNT(*) AS total FROM books ${whereClause}`;
+  const listSql = `
+    SELECT isbn, title, author, publisher, published_date, purchase_date, cover_url, created_at
+    FROM books
+    ${whereClause}
+    ORDER BY created_at DESC, title ASC
+    LIMIT ? OFFSET ?
+  `;
+
+  const totalRow = pattern
+    ? db.prepare(countSql).get(pattern)
+    : db.prepare(countSql).get();
+  const total = Number(totalRow?.total || 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const normalizedPage = Math.min(page, totalPages);
+  const normalizedOffset = (normalizedPage - 1) * pageSize;
+
+  const books = pattern
+    ? db.prepare(listSql).all(pattern, pageSize, normalizedOffset)
+    : db.prepare(listSql).all(pageSize, normalizedOffset);
+
+  return {
+    books,
+    pagination: {
+      page: normalizedPage,
+      pageSize,
+      total,
+      totalPages,
+      hasPrev: normalizedPage > 1,
+      hasNext: normalizedPage < totalPages
+    },
+    filter: {
+      scope: safeScope,
+      query: safeQuery
+    }
+  };
+}
+
 function readRequestBody(request) {
   return new Promise((resolve, reject) => {
     let rawBody = "";
@@ -249,8 +307,25 @@ async function fetchBookMetadataByIsbn(isbn) {
 
 async function handleApi(request, response, url) {
   if (request.method === "GET" && url.pathname === "/api/books") {
-    const books = selectAllBooks.all();
-    sendJson(response, 200, { books });
+    const hasPagingParams =
+      url.searchParams.has("page") ||
+      url.searchParams.has("pageSize") ||
+      url.searchParams.has("scope") ||
+      url.searchParams.has("query");
+
+    if (!hasPagingParams) {
+      const books = selectAllBooks.all();
+      sendJson(response, 200, { books });
+      return;
+    }
+
+    const page = parsePositiveInt(url.searchParams.get("page"), 1);
+    const pageSize = Math.min(parsePositiveInt(url.searchParams.get("pageSize"), 40), 100);
+    const scope = String(url.searchParams.get("scope") || "title");
+    const query = String(url.searchParams.get("query") || "");
+
+    const paged = getBooksPage({ page, pageSize, scope, query });
+    sendJson(response, 200, paged);
     return;
   }
 

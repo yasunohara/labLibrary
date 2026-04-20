@@ -11,7 +11,7 @@
       <header class="hero compact">
         <p class="eyebrow">Library Shelf</p>
         <h1>一覧を見る</h1>
-        <p class="lead">表紙一覧と表形式の一覧を切り替えながら、本の詳細を確認できます。</p>
+        <p class="lead">表紙の一覧と表形式を切り替えて、所蔵本を確認できます。</p>
       </header>
 
       <nav class="app-nav">
@@ -22,9 +22,10 @@
 
       <section class="panel">
         <div class="view-toggle" role="tablist" aria-label="一覧表示の切り替え">
-          <button id="view-shelf" class="view-toggle-button active" type="button" data-view="shelf">画像一覧</button>
-          <button id="view-table" class="view-toggle-button" type="button" data-view="table">表一覧</button>
+          <button id="view-shelf" class="view-toggle-button active" type="button" data-view="shelf">表紙一覧</button>
+          <button id="view-table" class="view-toggle-button" type="button" data-view="table">表形式</button>
         </div>
+
         <div class="filter-grid">
           <label class="filter-search">
             <span>絞り込み検索</span>
@@ -46,6 +47,13 @@
             </label>
           </fieldset>
         </div>
+
+        <div class="pagination-bar">
+          <button id="pagination-prev" type="button" class="ghost-button">前へ</button>
+          <p id="pagination-status" class="pagination-status">0件</p>
+          <button id="pagination-next" type="button" class="ghost-button">次へ</button>
+        </div>
+
         <div id="book-list" class="book-list empty">まだ本は登録されていません。</div>
         <p id="form-message" class="inline-message"></p>
       </section>

@@ -24,10 +24,20 @@ const viewShelfButton = document.getElementById("view-shelf");
 const viewTableButton = document.getElementById("view-table");
 const filterQueryInput = document.getElementById("filter-query");
 const filterScopeInputs = document.querySelectorAll('input[name="filter-scope"]');
+const paginationPrevButton = document.getElementById("pagination-prev");
+const paginationNextButton = document.getElementById("pagination-next");
+const paginationStatus = document.getElementById("pagination-status");
 
 let currentBookListView = "shelf";
 let currentRegisterMode = "create";
-let allBooks = [];
+let currentBooks = [];
+let currentPage = 1;
+let currentPageSize = 40;
+let currentScope = "title";
+let currentQuery = "";
+let totalBooks = 0;
+let totalPages = 1;
+let filterDebounceTimer = null;
 
 function normalizeIsbn(value) {
   return String(value || "").replace(/[^0-9Xx]/g, "").toUpperCase();
@@ -95,7 +105,6 @@ function updateCoverPreview(url, title = "") {
   }
 
   const safeUrl = String(url || "").trim();
-
   if (!safeUrl) {
     coverPreview.className = "cover-preview empty";
     coverPreview.innerHTML = "<span>表紙プレビューはここに表示されます。</span>";
@@ -104,7 +113,7 @@ function updateCoverPreview(url, title = "") {
 
   coverPreview.className = "cover-preview";
   coverPreview.innerHTML = `
-    <img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(title || "表紙")}" loading="lazy" />
+    <img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(title || "書影")}" loading="lazy" />
   `;
 }
 
@@ -130,7 +139,7 @@ function renderBookCover(book) {
     return `<img class="book-cover shelf-cover" src="${escapeHtml(book.cover_url)}" alt="${escapeHtml(book.title)}" loading="lazy" />`;
   }
 
-  return `<div class="book-cover shelf-cover placeholder">NO IMAGE</div>`;
+  return '<div class="book-cover shelf-cover placeholder">NO IMAGE</div>';
 }
 
 function getBookDetailUrl(isbn) {
@@ -139,6 +148,7 @@ function getBookDetailUrl(isbn) {
 
 function getBookListUrl(scope, query) {
   const params = new URLSearchParams();
+  params.set("page", "1");
   params.set("scope", scope);
   params.set("query", query);
   return `/books.html?${params.toString()}`;
@@ -156,11 +166,10 @@ function updateBookListViewButtons() {
   viewTableButton.setAttribute("aria-selected", String(!isShelfView));
 }
 
-function normalizeSearchText(value) {
-  return String(value || "").trim().toLocaleLowerCase("ja-JP");
-}
-
 function setBookFilter(scope, query) {
+  currentScope = scope;
+  currentQuery = query;
+
   if (filterQueryInput) {
     filterQueryInput.value = query;
   }
@@ -169,8 +178,6 @@ function setBookFilter(scope, query) {
   if (targetScope) {
     targetScope.checked = true;
   }
-
-  renderFilteredBooks();
 }
 
 function renderAuthorFilterLinks(authorText) {
@@ -209,48 +216,81 @@ function renderAuthorFilterAnchors(authorText) {
     .join('<span class="author-separator">, </span>');
 }
 
-function getFilteredBooks() {
-  const query = normalizeSearchText(filterQueryInput?.value);
-  const selectedScope = Array.from(filterScopeInputs).find((input) => input.checked)?.value || "title";
-
-  return allBooks.filter((book) => {
-    if (!query) {
-      return true;
-    }
-
-    const targetText =
-      selectedScope === "author"
-        ? book.author
-        : selectedScope === "isbn"
-          ? book.isbn
-          : book.title;
-
-    return normalizeSearchText(targetText).includes(query);
-  });
-}
-
-function renderFilteredBooks() {
-  renderBooks(getFilteredBooks());
-}
-
 function applyFiltersFromUrl() {
   const url = new URL(window.location.href);
-  const scope = url.searchParams.get("scope");
-  const query = url.searchParams.get("query");
 
-  if (!scope || !query) {
+  const pageFromUrl = Number.parseInt(url.searchParams.get("page") || "", 10);
+  if (Number.isFinite(pageFromUrl) && pageFromUrl > 0) {
+    currentPage = pageFromUrl;
+  }
+
+  const scopeFromUrl = url.searchParams.get("scope");
+  if (scopeFromUrl && ["title", "author", "isbn"].includes(scopeFromUrl)) {
+    currentScope = scopeFromUrl;
+  }
+
+  const queryFromUrl = url.searchParams.get("query");
+  if (queryFromUrl !== null) {
+    currentQuery = queryFromUrl;
+  }
+
+  setBookFilter(currentScope, currentQuery);
+}
+
+function syncBooksUrl() {
+  if (!bookList) {
     return;
   }
 
-  setBookFilter(scope, query);
+  const url = new URL(window.location.href);
+  url.searchParams.set("page", String(currentPage));
+
+  if (currentQuery) {
+    url.searchParams.set("scope", currentScope);
+    url.searchParams.set("query", currentQuery);
+  } else {
+    url.searchParams.delete("scope");
+    url.searchParams.delete("query");
+  }
+
+  window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+}
+
+function renderPagination() {
+  if (!paginationPrevButton || !paginationNextButton || !paginationStatus) {
+    return;
+  }
+
+  const start = totalBooks === 0 ? 0 : (currentPage - 1) * currentPageSize + 1;
+  const end = totalBooks === 0 ? 0 : start + currentBooks.length - 1;
+
+  paginationStatus.textContent = `${start}-${end} / ${totalBooks}件`;
+  paginationPrevButton.disabled = currentPage <= 1;
+  paginationNextButton.disabled = currentPage >= totalPages;
 }
 
 async function fetchBooks() {
-  const response = await fetch("/api/books");
+  const params = new URLSearchParams();
+  params.set("page", String(currentPage));
+  params.set("pageSize", String(currentPageSize));
+  params.set("scope", currentScope);
+  params.set("query", currentQuery);
+
+  const response = await fetch(`/api/books?${params.toString()}`);
   const data = await response.json();
-  allBooks = data.books || [];
-  applyFiltersFromUrl();
-  renderFilteredBooks();
+
+  currentBooks = data.books || [];
+  currentPage = data.pagination?.page || currentPage;
+  currentPageSize = data.pagination?.pageSize || currentPageSize;
+  totalBooks = data.pagination?.total || 0;
+  totalPages = data.pagination?.totalPages || 1;
+  currentScope = data.filter?.scope || currentScope;
+  currentQuery = data.filter?.query ?? currentQuery;
+
+  setBookFilter(currentScope, currentQuery);
+  renderBooks(currentBooks);
+  renderPagination();
+  syncBooksUrl();
 }
 
 async function fetchBookByIsbn(isbn) {
@@ -311,20 +351,19 @@ function hideRegisterPanel() {
 
 function setRegisterMode(mode) {
   currentRegisterMode = mode;
-
   if (!saveButton || !refreshMetadataButton || !deleteBookButton || !registerModeLabel) {
     return;
   }
 
   if (mode === "update") {
-    registerModeLabel.textContent = "登録済みの本です。内容を確認して更新または削除できます。";
+    registerModeLabel.textContent = "登録済みの本です。内容を更新できます。";
     saveButton.textContent = "更新";
     refreshMetadataButton.classList.remove("hidden");
     deleteBookButton.classList.remove("hidden");
     return;
   }
 
-  registerModeLabel.textContent = "新しい本です。内容を確認して登録してください。";
+  registerModeLabel.textContent = "新規登録です。内容を確認して登録してください。";
   saveButton.textContent = "登録";
   refreshMetadataButton.classList.add("hidden");
   deleteBookButton.classList.add("hidden");
@@ -386,18 +425,11 @@ async function lookupBookByIsbn() {
       fillRegisterFields(existingBook);
       setRegisterMode("update");
       showRegisterPanel();
-      setInlineMessage(lookupMessage, "登録済みの本です。DB に保存されている内容を表示しています。");
+      setInlineMessage(lookupMessage, "登録済みの本です。内容を表示しました。");
       return;
     }
 
-    const metadataBook = await lookupMetadataByIsbn(isbn).catch((error) => {
-      if (!error.message) {
-        throw error;
-      }
-
-      return null;
-    });
-
+    const metadataBook = await lookupMetadataByIsbn(isbn);
     if (!metadataBook) {
       hideRegisterPanel();
       setInlineMessage(lookupMessage, "Google Books と登録済み一覧のどちらにも見つかりませんでした。", true);
@@ -414,7 +446,7 @@ async function lookupBookByIsbn() {
     });
     setRegisterMode("create");
     showRegisterPanel();
-    setInlineMessage(lookupMessage, "Google Books から情報を読み込みました。内容を確認して登録してください。");
+    setInlineMessage(lookupMessage, "Google Books から情報を読み込みました。");
   } catch (error) {
     hideRegisterPanel();
     setInlineMessage(lookupMessage, error.message || "書誌情報の取得に失敗しました。", true);
@@ -431,8 +463,7 @@ async function deleteCurrentBook() {
     return;
   }
 
-  const confirmed = window.confirm("この本を削除しますか？");
-  if (!confirmed) {
+  if (!window.confirm("この本を削除しますか？")) {
     return;
   }
 
@@ -457,10 +488,7 @@ async function refreshMetadataForCurrentBook() {
     return;
   }
 
-  const confirmed = window.confirm(
-    "Google Book APIから本の情報を再取得します。既存の情報は上書きされますが、よろしいですか？"
-  );
-  if (!confirmed) {
+  if (!window.confirm("Google Books から最新情報を再取得しますか？")) {
     return;
   }
 
@@ -470,9 +498,8 @@ async function refreshMetadataForCurrentBook() {
 
   try {
     const metadataBook = await lookupMetadataByIsbn(isbn);
-
     if (!metadataBook) {
-      setInlineMessage(formMessage, "Google Books で本の情報が見つかりませんでした。", true);
+      setInlineMessage(formMessage, "Google Books で情報が見つかりませんでした。", true);
       return;
     }
 
@@ -485,12 +512,12 @@ async function refreshMetadataForCurrentBook() {
       publishedDate: metadataBook.publishedDate || currentValues.publishedDate,
       coverUrl: metadataBook.coverUrl || currentValues.coverUrl
     });
-    setInlineMessage(formMessage, "Google Books から情報を取得しました。");
+    setInlineMessage(formMessage, "Google Books の情報で更新しました。");
   } catch (error) {
     setInlineMessage(formMessage, error.message || "書誌情報の取得に失敗しました。", true);
   } finally {
     refreshMetadataButton.disabled = false;
-    refreshMetadataButton.textContent = "本の情報再取得";
+    refreshMetadataButton.textContent = "本の情報を再取得";
   }
 }
 
@@ -501,9 +528,7 @@ function renderBooks(books) {
 
   if (!books.length) {
     bookList.className = "book-list empty";
-    bookList.textContent = allBooks.length
-      ? "条件に合う本が見つかりませんでした。"
-      : "まだ本は登録されていません。";
+    bookList.textContent = totalBooks > 0 ? "条件に合う本が見つかりません。" : "まだ本は登録されていません。";
     return;
   }
 
@@ -525,8 +550,8 @@ function renderBooks(books) {
           </thead>
           <tbody>
             ${books
-              .map((book) => {
-                return `
+              .map(
+                (book) => `
                   <tr>
                     <td>
                       <a class="book-table-link book-table-cover-link" href="${escapeHtml(getBookDetailUrl(book.isbn))}" aria-label="${escapeHtml(book.title)} の詳細を見る">
@@ -540,8 +565,8 @@ function renderBooks(books) {
                     <td>${escapeHtml(formatDateLabel(book.purchase_date))}</td>
                     <td>${escapeHtml(book.isbn)}</td>
                   </tr>
-                `;
-              })
+                `
+              )
               .join("")}
           </tbody>
         </table>
@@ -552,8 +577,8 @@ function renderBooks(books) {
 
   bookList.className = "book-list shelf-grid";
   bookList.innerHTML = books
-    .map((book) => {
-      return `
+    .map(
+      (book) => `
         <a class="shelf-item" href="${escapeHtml(getBookDetailUrl(book.isbn))}" aria-label="${escapeHtml(book.title)} の詳細を見る">
           ${renderBookCover(book)}
           <div class="shelf-overlay">
@@ -565,8 +590,8 @@ function renderBooks(books) {
             <p>ISBN: ${escapeHtml(book.isbn)}</p>
           </div>
         </a>
-      `;
-    })
+      `
+    )
     .join("");
 }
 
@@ -577,7 +602,7 @@ function renderBookDetail(book) {
 
   const cover = book.cover_url
     ? `<img class="detail-cover-image" src="${escapeHtml(book.cover_url)}" alt="${escapeHtml(book.title)}" loading="lazy" />`
-    : `<div class="detail-cover-image placeholder">NO IMAGE</div>`;
+    : '<div class="detail-cover-image placeholder">NO IMAGE</div>';
 
   bookDetail.className = "book-detail-card";
   bookDetail.innerHTML = `
@@ -625,7 +650,6 @@ async function loadBookDetailPage() {
 
   const url = new URL(window.location.href);
   const isbn = normalizeIsbn(url.searchParams.get("isbn"));
-
   if (!isbn) {
     bookDetail.className = "book-list empty";
     bookDetail.textContent = "ISBN が指定されていません。";
@@ -634,7 +658,6 @@ async function loadBookDetailPage() {
 
   try {
     const { response, data } = await fetchBookByIsbn(isbn);
-
     if (!response.ok) {
       bookDetail.className = "book-list empty";
       bookDetail.textContent = data.error || "本の詳細を読み込めませんでした。";
@@ -703,7 +726,6 @@ if (bookForm) {
     };
 
     const { response, data } = await submitBook(payload);
-
     if (!response.ok) {
       setInlineMessage(formMessage, data.error || "保存に失敗しました。", true);
       return;
@@ -715,6 +737,7 @@ if (bookForm) {
 }
 
 if (bookList) {
+  applyFiltersFromUrl();
   updateBookListViewButtons();
 
   bookList.addEventListener("click", (event) => {
@@ -725,27 +748,72 @@ if (bookList) {
 
     event.preventDefault();
     setBookFilter("author", authorButton.dataset.author || "");
+    currentPage = 1;
+    fetchBooks().catch(() => {
+      setInlineMessage(formMessage, "一覧の読み込みに失敗しました。", true);
+    });
   });
 
   viewShelfButton?.addEventListener("click", () => {
     currentBookListView = "shelf";
     updateBookListViewButtons();
-    renderFilteredBooks();
+    renderBooks(currentBooks);
   });
 
   viewTableButton?.addEventListener("click", () => {
     currentBookListView = "table";
     updateBookListViewButtons();
-    renderFilteredBooks();
+    renderBooks(currentBooks);
   });
 
   filterQueryInput?.addEventListener("input", () => {
-    renderFilteredBooks();
+    currentQuery = filterQueryInput.value.trim();
+    currentPage = 1;
+
+    if (filterDebounceTimer) {
+      clearTimeout(filterDebounceTimer);
+    }
+
+    filterDebounceTimer = setTimeout(() => {
+      fetchBooks().catch(() => {
+        setInlineMessage(formMessage, "一覧の読み込みに失敗しました。", true);
+      });
+    }, 250);
   });
 
   filterScopeInputs.forEach((input) => {
     input.addEventListener("change", () => {
-      renderFilteredBooks();
+      if (!input.checked) {
+        return;
+      }
+
+      currentScope = input.value;
+      currentPage = 1;
+      fetchBooks().catch(() => {
+        setInlineMessage(formMessage, "一覧の読み込みに失敗しました。", true);
+      });
+    });
+  });
+
+  paginationPrevButton?.addEventListener("click", () => {
+    if (currentPage <= 1) {
+      return;
+    }
+
+    currentPage -= 1;
+    fetchBooks().catch(() => {
+      setInlineMessage(formMessage, "一覧の読み込みに失敗しました。", true);
+    });
+  });
+
+  paginationNextButton?.addEventListener("click", () => {
+    if (currentPage >= totalPages) {
+      return;
+    }
+
+    currentPage += 1;
+    fetchBooks().catch(() => {
+      setInlineMessage(formMessage, "一覧の読み込みに失敗しました。", true);
     });
   });
 

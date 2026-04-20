@@ -328,6 +328,20 @@ button:disabled {
   margin-bottom: 18px;
 }
 
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.pagination-status {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .filter-search {
   align-self: end;
 }
@@ -749,5 +763,10 @@ button:disabled {
 
   .filter-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pagination-bar {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
