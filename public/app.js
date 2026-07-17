@@ -134,6 +134,12 @@ function applyDefaultPurchaseDate() {
   bookPurchaseDateInput.value = getTodayString();
 }
 
+function focusBookIsbnInput() {
+  window.requestAnimationFrame(() => {
+    bookIsbnInput?.focus();
+  });
+}
+
 function renderBookCover(book) {
   if (book.cover_url) {
     return `<img class="book-cover shelf-cover" src="${escapeHtml(book.cover_url)}" alt="${escapeHtml(book.title)}" loading="lazy" />`;
@@ -347,6 +353,7 @@ function showRegisterPanel() {
 
 function hideRegisterPanel() {
   registerPanel?.classList.add("hidden");
+  focusBookIsbnInput();
 }
 
 function setRegisterMode(mode) {
@@ -402,6 +409,7 @@ function resetRegisterFlow() {
   clearInlineMessage(lookupMessage);
   clearInlineMessage(formMessage);
   updateCoverPreview("");
+  focusBookIsbnInput();
 }
 
 async function lookupBookByIsbn() {
@@ -672,6 +680,10 @@ async function loadBookDetailPage() {
 
 if (bookForm) {
   resetRegisterFlow();
+
+  window.addEventListener("pageshow", () => {
+    focusBookIsbnInput();
+  });
 
   lookupButton.addEventListener("click", lookupBookByIsbn);
   bookIsbnInput?.addEventListener("keydown", async (event) => {
