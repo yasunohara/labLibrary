@@ -208,7 +208,7 @@ button:hover {
 
 button:disabled {
   opacity: 0.7;
-  cursor: wait;
+  cursor: default;
   transform: none;
 }
 
