@@ -38,9 +38,31 @@ let currentQuery = "";
 let totalBooks = 0;
 let totalPages = 1;
 let filterDebounceTimer = null;
+let isbnWarningActive = false;
+let suppressIsbnInputUntil = 0;
 
 function normalizeIsbn(value) {
   return String(value || "").replace(/[^0-9Xx]/g, "").toUpperCase();
+}
+
+function isValidBookIsbnInput(isbn) {
+  return /^(?:\d{9}[\dX]|97[89]\d{10})$/.test(isbn);
+}
+
+function getIsbnInputWarning(isbn) {
+  if (isbn.startsWith("192")) {
+    return "入力された番号「192...」は下段のバーコード番号です。ISBNではないため、上段の978または979から始まるISBNを入力してください。";
+  }
+
+  if (/^\d{13}$/.test(isbn) && !/^97[89]/.test(isbn)) {
+    return `入力された番号「${isbn}」は978または979で始まっていません。ISBNではない可能性があるため、上段のISBNを入力してください。`;
+  }
+
+  if (isbn.length >= 13 && !isValidBookIsbnInput(isbn)) {
+    return `入力された番号「${isbn}」はISBNの形式ではありません。ISBN欄をクリアしました。`;
+  }
+
+  return "";
 }
 
 function normalizeDate(value) {
@@ -138,6 +160,41 @@ function focusBookIsbnInput() {
   window.requestAnimationFrame(() => {
     bookIsbnInput?.focus();
   });
+}
+
+function clearInvalidIsbnInput(message) {
+  if (bookIsbnInput) {
+    bookIsbnInput.value = "";
+  }
+
+  isbnWarningActive = true;
+  suppressIsbnInputUntil = Date.now() + 800;
+  hideRegisterPanel();
+  setRegisterMode("create");
+  updateCoverPreview("");
+  clearInlineMessage(formMessage);
+  setInlineMessage(lookupMessage, message, true);
+  focusBookIsbnInput();
+}
+
+function rejectInvalidIsbnInputIfNeeded() {
+  const isbn = normalizeIsbn(bookIsbnInput?.value);
+  if (Date.now() < suppressIsbnInputUntil) {
+    if (bookIsbnInput) {
+      bookIsbnInput.value = "";
+    }
+    focusBookIsbnInput();
+    return true;
+  }
+
+  isbnWarningActive = false;
+  const warning = getIsbnInputWarning(isbn);
+  if (!warning) {
+    return false;
+  }
+
+  clearInvalidIsbnInput(warning);
+  return true;
 }
 
 function renderBookCover(book) {
@@ -413,12 +470,27 @@ function resetRegisterFlow() {
 }
 
 async function lookupBookByIsbn() {
+  if (isbnWarningActive && !normalizeIsbn(bookIsbnInput?.value)) {
+    focusBookIsbnInput();
+    return;
+  }
+
   clearInlineMessage(lookupMessage);
   clearInlineMessage(formMessage);
+
+  if (rejectInvalidIsbnInputIfNeeded()) {
+    return;
+  }
 
   const isbn = normalizeIsbn(bookIsbnInput?.value);
   if (!isbn) {
     setInlineMessage(lookupMessage, "ISBN を入力してください。", true);
+    return;
+  }
+
+  if (!isValidBookIsbnInput(isbn)) {
+    setInlineMessage(lookupMessage, `入力された番号「${isbn}」はISBNの桁数が不足しているか、形式が正しくありません。上段のISBNを最後まで入力してください。`, true);
+    focusBookIsbnInput();
     return;
   }
 
@@ -686,6 +758,12 @@ if (bookForm) {
   });
 
   lookupButton.addEventListener("click", lookupBookByIsbn);
+  bookIsbnInput?.addEventListener("input", () => {
+    if (!rejectInvalidIsbnInputIfNeeded() && normalizeIsbn(bookIsbnInput.value)) {
+      isbnWarningActive = false;
+    }
+  });
+
   bookIsbnInput?.addEventListener("keydown", async (event) => {
     if (event.key !== "Enter") {
       return;

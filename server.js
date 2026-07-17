@@ -102,7 +102,7 @@ function normalizeImageUrl(url) {
 }
 
 function isValidIsbn(isbn) {
-  return /^(?:\d{10}|\d{13}|\d{9}X)$/.test(isbn);
+  return /^(?:\d{9}[\dX]|97[89]\d{10})$/.test(isbn);
 }
 
 function normalizeStoredDate(value) {
